@@ -36,7 +36,10 @@ for pit=1:PARAMS.Npicard_max
     %---------------------------------------------------------------------------------
     % Assemble L and R matrices
     %---------------------------------------------------------------------------------
-    [L, R, Kc, Kb]=SiStER_assemble_L_R(dx,dy,Zs.*etas,Zn.*etan,rho,BC,PARAMS,srhs_xx,srhs_xy); %G.Ito
+    % [L, R, Kc, Kb]=SiStER_assemble_L_R_vel_profile(dx,dy,Zs.*etas,Zn.*etan,rho,BC,PARAMS,srhs_xx,srhs_xy,GRID);
+    % %G.Ito % HERE for analytical profile 
+    [L, R, Kc, Kb]=SiStER_assemble_L_R_vel_profile_pressure_bc(dx,dy,Zs.*etas,Zn.*etan,rho,BC,PARAMS,srhs_xx,srhs_xy,GRID,time,MAT,sxxOLD); %HERE FOR UPLIFT
+ %   [L, R, Kc, Kb]=SiStER_assemble_L_R_vel_profile_pressure_bc(dx,dy,etas,etan,rho,BC,PARAMS,srhs_xx,srhs_xy,GRID); %HERE FOR UPLIFT
     
     %---------------------------------------------------------------------------------
     % Residual:  L and R are from current solution S
@@ -83,7 +86,8 @@ for pit=1:PARAMS.Npicard_max
 %end
    
 %% get strain rate on nodes current solution
-[EXX,EXY]=SiStER_get_strain_rate(vx,vy,dx,dy,BC);
+sxy_term = (1 - Zs).*sxyOLD./(2.*etas.*Zs); %F Clerc traction edit
+[EXX,EXY]=SiStER_get_strain_rate(vx,vy,dx,dy,BC,GRID,sxy_term); %HERE
 
 EXY_n=SiStER_interp_shear_to_normal_nodes(EXY);       
 EXX_s=SiStER_interp_normal_to_shear_nodes(EXX,dx,dy); 

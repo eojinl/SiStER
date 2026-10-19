@@ -3,6 +3,7 @@
 % advect the marker chain that keeps track of topography 
 % in the current flow field
 [topo_x,topo_y] = SiStER_advect_markers(x,y,topo_x,topo_y,dx,dy,dt_m,vx,vy);
+[topo_bot_x,topo_bot_y] = SiStER_advect_markers_from_bot(x,y,topo_bot_x0,topo_bot_y0,topo_bot_x,topo_bot_y,dx,dy,dt_m,vx,vy); %bottom topography update HERE
 
 % locate the interface between sticky layer and left / right edge
 if isempty(find(topo_x<0,1))==1
@@ -38,10 +39,20 @@ if max(diff(topo_x))>5*topo_marker_spacing || issorted(topo_x)==0
     % surface regridding happens if somewhere 2 topo markers have been
     % stretched apart by more than 5 times the inital mean marker spacing
     % or if topo_x is no longer sorted due to compression.
-    topo_xREGRID=linspace(0,xsize,Ntopo);
+    topo_xREGRID=linspace(0,xsize,Ntopo); %original regrid 
     topo_yREGRID=interp1(topo_x,topo_y,topo_xREGRID(2:end-1));
     topo_yREGRID=[topoL topo_yREGRID topoR];
     topo_x=topo_xREGRID;
     topo_y=topo_yREGRID;
     disp('**REGRIDDING TOPOGRAPHY MARKERS**')
 end
+
+
+%% Debugging regridding code
+% topo_x_regrid=linspace(0,xsize,Ntopo); %HERE
+% topo_y_regrid=interp1(data.topo_x,data.topo_y,topo_x_regrid(2:end-1));
+% topo_y_regrid=[topoL topo_y_regrid topoR];
+% 
+% plot(topo_y_regrid)
+
+

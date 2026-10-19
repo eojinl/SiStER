@@ -1,4 +1,4 @@
-function [EXX,EXY]=SiStER_get_strain_rate(vx,vy,dx,dy,BC)
+function [EXX,EXY]=SiStER_get_strain_rate(vx,vy,dx,dy,BC,GRID,sxy_term)
 % [EXX EXY]=SiStER_get_strain_rate(vx,vy,dx,dy,BC)
 % computes the deviatoric strain rate: EXX, at normal nodes
 % and EXY, at shear nodes, from vx and vy on the eulerian grid
@@ -7,6 +7,9 @@ function [EXX,EXY]=SiStER_get_strain_rate(vx,vy,dx,dy,BC)
 %    consistent with the top and bottom boundary conditions, as those
 %    (not the side) conditions control the solutions for vx,vy at the
 %    points closest to the corners in SiStER_Stokes_solver.m
+% 
+% E. Lee 12/31/24 changed boundary conditions; function call changed in
+% SiStER_flow_solve.m
 
 [Ny, Nx]=size(vx);
 
@@ -22,6 +25,7 @@ end
         
 % Getting EXY (on shear nodes) requires some thinking when dealing with
 % boundaries
+exy_rhs = 0;
 for i=1:Ny
     for j=1:Nx   
         
@@ -38,13 +42,25 @@ for i=1:Ny
             EXY(i,j)= 0.5*(dvxdy + 2*(vy(i,j)-vy(i,j-1))/(dx(j-1)+dx(j)));
             
         elseif i==Ny && j>=2 && j<=Nx-1 % bottom
-            if BC.bot(1)==1 % rollers
+            if BC.bot(1)==1 % rollers; free slip
                 dvxdy=0;
-            elseif BC.bot(1)==0 % no rollers
+            elseif BC.bot(1)==0 % no rollers; no slip
                 %dvxdy=-2*vx(i-1,j)/dy(i-1);
                 dvxdy=2.*(BC.bot(4)-vx(i-1,j))/dy(i-1);  %G.Ito needed for tangential velocity on base
+            elseif BC.bot(1)==2 % PERMANENT PATCH HERE
+                nodes_for_slip = BC.slip_patch_size/GRID.dx+1;
+                if j >= floor(Nx/2)-(nodes_for_slip-1)/2 && j <= floor(Nx/2)+(nodes_for_slip-1)/2 % then free slip
+                  dvxdy=0; % rollers (free slip patches)
+                else
+                  dvxdy=-2.*vx(i-1,j)/dy(i-1); % no rollers (stick patches)
+                end
+            elseif BC.bot(1)==3 % HERE
+                dvxdy=-2*vx(i-1,j)*BC.Kx_bot(j)/dy(i-1);
+                % F Clerc Nov 2025; free slip to free traction edit
+                exy_rhs = -1.*(1 - BC.Kx_bot(j)).*sxy_term(i,j);
             end         
-            EXY(i,j)= 0.5*(dvxdy + 2*(vy(i,j)-vy(i,j-1))/(dx(j-1)+dx(j)));
+            % EXY(i,j)= 0.5*(dvxdy + 2*(vy(i,j)-vy(i,j-1))/(dx(j-1)+dx(j)));
+            EXY(i,j)= 0.5*(dvxdy + 2*(vy(i,j)-vy(i,j-1))/(dx(j-1)+dx(j))) + exy_rhs; %HERE
             
         elseif j==1 && i>=2 && i<=Ny-1 
             if BC.left(1)==1 % rollers
@@ -103,15 +119,34 @@ for i=1:Ny
                 dvxdy=0;
             elseif BC.bot(1)==0 % no rollers
                 dvxdy=-2*vx(i-1,j)/dy(i-1);
+            elseif BC.bot(1)==2 % PERMANENT PATCH HERE
+                nodes_for_slip = BC.slip_patch_size/GRID.dx+1;
+                if j >= floor(Nx/2)-(nodes_for_slip-1)/2 && j <= floor(Nx/2)+(nodes_for_slip-1)/2 % then free slip
+                  dvxdy=0; % rollers for slip patches 
+                else
+                  dvxdy=-2*vx(i-1,j)/dy(i-1); % no rollers (stick patches)
+                end
+
+            elseif BC.bot(1)==3 % HERE
+                dvxdy=-2*vx(i-1,j)*BC.Kx_bot(j)/dy(i-1);
             end
             if BC.bot(2)==0 % vy imposed on bottom (Dirichlet)
                 dvydx=0;
-            elseif BC.bot(2)==3 % open bottom so set to be the same as adjacent node
+            elseif BC.bot(2)==3 % open bottom so set to be the same as adjacent node HERE
                 dvydx=2*(vy(i,j-1)-vy(i,j-2))./(dx(j-1)+dx(j-2));
-            else
-                disp(['Stopped in get_strain_rate:  EXY for corner elements not coded for BC.bot(2)='....
-                num2str(BC.bot(2))]);
-                halt
+            elseif BC.bot(2)==4 % HERE
+                dvydx=0;
+                % if BC.Kx_bot(j)<0.5
+                %     dvydx=2*(vy(i,j-1)-vy(i,j-2))./(dx(j-1)+dx(j-2));
+                % elseif BC.Kx_bot(j)>0.5
+                %     dvydx=0;
+                % end
+             
+               
+            % else
+            %     disp(['Stopped in get_strain_rate:  EXY for corner elements not coded for BC.bot(2)='....
+            %     num2str(BC.bot(2))]);
+                % halt % HERE 
             end
             EXY(i,j)=(dvxdy + dvydx)/2;
             
@@ -120,11 +155,27 @@ for i=1:Ny
                 dvxdy=0;
             elseif BC.bot(1)==0 % no rollers
                 dvxdy=-2*vx(i-1,j)/dy(i-1);
-            end  
-            if BC.bot(2)==0 % vy imposed on bottom (Dirichlet)% rollers
+            elseif BC.bot(1)==2 % PERMANENT PATCH HERE
+                nodes_for_slip = BC.slip_patch_size/GRID.dx+1;
+                if j >= floor(Nx/2)-(nodes_for_slip-1)/2 && j <= floor(Nx/2)+(nodes_for_slip-1)/2 % then free slip
+                  dvxdy=0; % free slip patch in summer
+                else
+                  dvxdy=-2*vx(i-1,j)/dy(i-1); % stick patches in summer 
+                end    
+            elseif BC.bot(1)==3 % HERE
+                dvxdy=-2*vx(i-1,j)*(BC.Kx_bot(j))/dy(i-1);
+            end
+            if BC.bot(2)==0 % vy imposed on bottom (Dirichlet) % rollers
                 dvydx=0;
             elseif BC.bot(2)==3 % open bottom so set to be the same as adjacent node
                 dvydx=2*(vy(i,j+1)-vy(i,j))./(dx(j+1)+dx(j));
+            elseif BC.bot(2)==4 % open patch HERE
+                dvydx=0;
+                % if BC.Kx_bot(j)<0.5
+                %     dvydx=2*(vy(i,j+1)-vy(i,j))./(dx(j+1)+dx(j));
+                % elseif BC.Kx_bot(j)>0.5
+                %     dvydx=0;
+                % end
             end  
             EXY(i,j)=(dvxdy + dvydx)/2;
             
