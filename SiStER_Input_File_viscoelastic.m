@@ -12,10 +12,9 @@ ysize=1.8e3;
 BC.xsize=xsize;
 
 h_ice=1e3; %height of ice
-h_air=0.5e3; %height of air; originally 0.5e3
+h_air=0.5e3; %height of air
 h_rock=0.3e3; %height of rock
-epsilon=1; % change slope of bed; unit of degrees
-factor=2.; %scale air, ice, and rock viscosity
+epsilon=0; % change slope of bed; unit of degrees
 
 % DEFINE SETUP
 BC.slip_patch_size=5e3;
@@ -34,6 +33,7 @@ ice_density=920;
 rock_density=1000;
 
 % for Glen's flow
+nonNewtonian=true; 
 A=1.2e-25;
 n_flow=3;
 
@@ -128,22 +128,25 @@ MAT(2).k=3;
 MAT(2).cp=1000;
 % elasticity 
 MAT(2).G=G_ice;
-% diffusion creep parameters
-MAT(2).pre_diff=0.5/eta_ice; %newtonian case is harmonic avg of pre_diff and pre_disc, viscosity=1e14; for lower, use 0.75; for higher, use 0.25
-MAT(2).Ediff=0;
-MAT(2).ndiff=1;
-% dislocation creep parameters
-MAT(2).pre_disc=0.5/eta_ice;
-MAT(2).Edisc=0;
-MAT(2).ndisc=1;
-% diffusion creep parameters
-% MAT(2).pre_diff=A;% Glen's flow-law parameter
-% MAT(2).Ediff=0;
-% MAT(2).ndiff=n_flow;
-% % dislocation creep parameters
-% MAT(2).pre_disc=A;% Glen's flow-law parameter
-% MAT(2).Edisc=0;
-% MAT(2).ndisc=n_flow;
+if nonNewtonian
+    % diffusion creep parameters
+    MAT(2).pre_diff=A;% Glen's flow-law parameter
+    MAT(2).Ediff=0;
+    MAT(2).ndiff=n_flow;
+    % dislocation creep parameters
+    MAT(2).pre_disc=A;% Glen's flow-law parameter
+    MAT(2).Edisc=0;
+    MAT(2).ndisc=n_flow;
+else
+    % diffusion creep parameters
+    MAT(2).pre_diff=0.5/eta_ice; %newtonian case is harmonic avg of pre_diff and pre_disc
+    MAT(2).Ediff=0;
+    MAT(2).ndiff=1;
+    % dislocation creep parameters
+    MAT(2).pre_disc=0.5/eta_ice;
+    MAT(2).Edisc=0;
+    MAT(2).ndisc=1;
+end
 % plasticity
 MAT(2).mu=0.6;
 MAT(2).mumin=0.3;
@@ -298,22 +301,6 @@ BC.Kx_bot = BC.Kx_bot_bkgd;
 BC.xx = xx;
 BC.pressure_tanh= 0.5*(tanh((xx - slip_left)/w) - tanh((xx - slip_right)/w));
 
-% --- Slip width diagnostic ---
-threshold = 0.5;   % define "active" region (50% of max)
-
-active_nodes = BC.xx(abs(BC.pressure_tanh) > threshold);
-
-if ~isempty(active_nodes)
-    measured_width = max(active_nodes) - min(active_nodes);
-else
-    measured_width = 0;
-end
-
-fprintf('Target slip width:    %.2f m\n', BC.slip_patch_size);
-fprintf('Measured slip width:  %.2f m\n', measured_width);
-fprintf('Relative error:       %.4f %%\n', ...
-    100*(measured_width - BC.slip_patch_size)/BC.slip_patch_size);
-
 BC.smoothing_width=w;
 
 % % uniform grid 
@@ -332,7 +319,12 @@ BC.top_profile=xx*0;
 % Left and right boundary conditions
 BC.left=[1 1 u0]; 
 BC.right=[1 1 u0]; % 0 3 u0 for open condition
-BC.right_vx=min(us*(h_ice-zz)./h_ice.*(2-(h_ice-zz)./h_ice),0); %analytical bc no slip 
+
+if nonNewtonian
+    BC.right_vx=min(us*(1^(n_flow+1)-(1-zz./h_ice).^(n_flow+1)),0); %NON-NEWTONIAN analytical bc no slip
+else
+    BC.right_vx=min(us*(h_ice-zz)./h_ice.*(2-(h_ice-zz)./h_ice),0); %NEWTONIAN analytical bc no slip
+end
 BC.left_vx=BC.right_vx; %left velocity profile
 
 PARAMS.BalanceStickyLayer=0; % if set to 1, the code will reset the inflow 

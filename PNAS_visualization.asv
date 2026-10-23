@@ -1,0 +1,367 @@
+%% Plotting code 
+%% Model parameters: run this block before all other plotting code
+L = BC.slip_patch_size;
+h_air = BC.h_air; 
+x0 = BC.xsize/2; 
+[ice] = find((h_air-1 < y) & (y < h_air + h_ice));
+patch_l = BC.xsize/2 - L/2;
+patch_r = BC.xsize/2 + L/2;
+[margin] = find((patch_l - 2*h_ice < x) & (x < patch_r + 2*h_ice));
+n = 256;
+cmap = interp1([0 0.5 1], [0 0 1; 1 1 1; 1 0 0], linspace(0,1,n));
+
+% Set sliding and uplift values
+epsilon=1; %0 for no sliding; 1 for sliding
+BC.p=0; %0 for no pressure; 1e5 for full blister pressure
+
+% Timesteps of interest (0-80)
+times = [5, 79];
+hrs   = [0, 15.8];
+
+%% Full stress field at two timesteps
+fig = figure();
+fig.Units = 'centimeters';
+fig.Position = [0 0 40 20]; 
+fig.PaperSize = [40 30];
+tl = tiledlayout(fig, 2, 1, 'TileSpacing', 'compact', 'Padding', 'compact');
+
+xdata = x(margin) - x0;
+
+for k = 1:2
+    fname = strcat("t",num2str(times(k)),"_d",num2str((PARAMS.t_end-PARAMS.t_start)/(3600*24)),"_G",sprintf('%0.1g',MAT(2).G),"_ep",num2str(epsilon),"_mu",sprintf('%0.1g',eta_ice),"_etaw", sprintf('%0.1g',eta_water),"_etar", sprintf('%0.1g',eta_rock),"_p",sprintf('%0.1g', BC.p),'_ell',sprintf('%0.1g',BC.slip_patch_size/2),'_nonlinear_viscoelastic.mat');
+    data = load(fname);
+    ax = nexttile(tl);
+    imagesc(ax, xdata, y(ice) - h_air, data.sxxOLD(ice, margin));
+    title(ax, strcat('Horizontal normal deviatoric stress $\tau_{xx}$, t=', num2str(hrs(k)), ' hrs'), Interpreter='latex', FontSize=38);
+    ylabel(ax, 'depth (m)', Interpreter='latex', FontSize=40);
+    xline(ax, [- L/2, L/2], ':', 'LineWidth', 2, 'HandleVisibility', 'off');
+    colormap(ax, flipud(brewermap(256, 'RdBu')))
+    clim(ax, [-5e5 5e5]);
+    xlim(ax, [xdata(1), xdata(end)]);
+    set(ax, 'YTick', 0:200:h_ice, 'YDir', 'reverse');
+    set(ax, 'XTick', (2.5e4:1e3:3.5e4)-x0);
+    ax.FontSize = 35;
+    ax.YLabel.FontSize = 40;
+    ax.Title.FontSize = 40;
+    if k == 1
+        set(ax, 'XTickLabel', []);
+    else
+        xlabel(ax, 'x (m)', Interpreter='latex', FontSize=40);
+        ax.XLabel.FontSize = 40;
+    end
+end
+
+% ---------- Colorbar ----------
+c = colorbar(ax);
+c.Layout.Tile = 'east';
+c.Label.String = '$\tau_{xx}$ (Pa)';
+c.Label.Interpreter = 'latex';
+c.Label.FontSize = 35;
+c.FontSize = 35;
+drawnow;
+
+%% Full normal viscosity field at two timesteps
+all_vals = [];
+for k = 1:2
+    fname = strcat("t",num2str(times(k)),"_d",num2str((PARAMS.t_end-PARAMS.t_start)/(3600*24)),"_G",sprintf('%0.1g',MAT(2).G),"_ep",num2str(epsilon),"_mu",sprintf('%0.1g',eta_ice),"_etaw", sprintf('%0.1g',eta_water),"_etar", sprintf('%0.1g',eta_rock),"_p",sprintf('%0.1g', BC.p),'_ell',sprintf('%0.1g',BC.slip_patch_size/2),'_nonlinear_viscoelastic.mat');
+    d = load(fname);
+    all_vals = [all_vals; reshape(log10(d.etan(ice(3:end), margin)), [], 1)];
+end
+clims = [prctile(all_vals, 1), prctile(all_vals, 99)]; 
+
+fig = figure();
+fig.Units = 'centimeters';
+fig.Position = [0 0 40 20];
+fig.PaperSize = [40 30];
+tl = tiledlayout(fig, 2, 1, 'TileSpacing', 'compact', 'Padding', 'compact');
+
+for k = 1:2
+    fname = strcat("t",num2str(times(k)),"_d",num2str((PARAMS.t_end-PARAMS.t_start)/(3600*24)),"_G",sprintf('%0.1g',MAT(2).G),"_ep",num2str(epsilon),"_mu",sprintf('%0.1g',eta_ice),"_etaw", sprintf('%0.1g',eta_water),"_etar", sprintf('%0.1g',eta_rock),"_p",sprintf('%0.1g', BC.p),'_ell',sprintf('%0.1g',BC.slip_patch_size/2),'_nonlinear_viscoelastic.mat');
+    data = load(fname);
+
+    ax = nexttile(tl);
+    logeta = log10(data.etan(ice, margin));
+    imagesc(ax, x(margin)-x0, y(ice)-h_air, logeta);
+
+    title(ax, sprintf('Viscosity $\\log_{10}\\eta$, t=%g hrs', hrs(k)), Interpreter='latex', FontSize=38);
+    ylabel(ax, 'depth (m)', Interpreter='latex', FontSize=40);
+    xline(ax, [-L/2, L/2], ':', 'LineWidth', 2, 'HandleVisibility', 'off');
+
+    colormap(ax, flipud(brewermap(256, 'RdYlBu')));  
+    clim(ax, clims);                                 
+    xlim(ax, [x(margin(1)) x(margin(end))] - x0);
+    set(ax, 'YTick', 0:200:h_ice, 'YDir', 'reverse');
+    set(ax, 'XTick', (2.5e4:1e3:3.5e4)-x0);
+    ax.FontSize = 35;
+
+    if k == 1
+        set(ax, 'XTickLabel', []);
+    else
+        xlabel(ax, 'x (m)', Interpreter='latex', FontSize=40);
+    end
+end
+
+c = colorbar(ax);
+c.Layout.Tile = 'east';
+c.Label.String = '$\log_{10}\eta$ (Pa s)';
+c.Label.Interpreter = 'latex';
+c.Label.FontSize = 35;
+c.FontSize = 35;
+drawnow;
+
+
+%% Full velocity, \tau_{xx}, \tau_{xy} fields plot
+time=4;
+fname_vel=strcat("t",num2str(time),"_d",num2str((PARAMS.t_end-PARAMS.t_start)/(3600*24)),"_G",sprintf('%0.1g',MAT(2).G),"_ep",num2str(epsilon),"_mu",sprintf('%0.1g',eta_ice),"_etaw", sprintf('%0.1g',eta_water),"_etar", sprintf('%0.1g',eta_rock),"_p",sprintf('%0.1g', BC.p),'_ell',sprintf('%0.1g',BC.slip_patch_size/2),'_nonlinear_viscoelastic.mat');
+fname_stress=strcat("t",num2str(time+1),"_d",num2str((PARAMS.t_end-PARAMS.t_start)/(3600*24)),"_G",sprintf('%0.1g',MAT(2).G),"_ep",num2str(epsilon),"_mu",sprintf('%0.1g',eta_ice),"_etaw", sprintf('%0.1g',eta_water),"_etar", sprintf('%0.1g',eta_rock),"_p",sprintf('%0.1g', BC.p),'_ell',sprintf('%0.1g',BC.slip_patch_size/2),'_nonlinear_viscoelastic.mat');
+
+data_vel=load(fname_vel);
+data_stress=load(fname_stress);
+
+s2yr = 60*60*24*365;
+
+vx=data_vel.vx(ice,margin).*s2yr;
+vy=data_vel.vy(ice,margin).*s2yr;
+magnitude=sqrt(vx.^2+vy.^2);
+
+fig=figure();
+fig.Units    = 'centimeters';
+fig.Position = [0 0 36 28];
+t = tiledlayout(3,1, 'Padding', 'tight', 'TileSpacing', 'compact'); 
+title(t, strcat('Uplift + sliding for L=5km, time=', num2str(data_vel.time-3000),'s'),Interpreter='latex',FontSize=30)
+fontsize(fig, 25, "points");  
+
+[X, Y] = meshgrid(x(margin), y(ice)); 
+xq = X(2:3:end, 2:3:end);
+yq = Y(2:3:end, 2:3:end)-h_air; 
+vxq = vx(2:3:end, 2:3:end);
+vyq = vy(2:3:end, 2:3:end);
+magq = magnitude(2:3:end, 2:3:end);
+
+nexttile
+imagesc(x(margin),y(ice)-h_air,magnitude);
+hold on
+quiver(xq,yq,vxq./magq,vyq./magq,0.4,'k','HandleVisibility','off');
+ylabel('depth (m)',Interpreter='latex',fontsize=30); 
+title('velocity field',Interpreter='latex',fontsize=30);
+xline(BC.xsize/2-L/2, ':', 'LineWidth',2,DisplayName='slip patch margin')
+xline(BC.xsize/2+L/2, ':', 'LineWidth',2,HandleVisibility='off')
+colormap(gca, brewermap(256,'Purples'))
+clim([0 1000])   
+c = colorbar;
+c.Label.String = 'speed (m/yr)';
+c.Label.Interpreter = 'latex';
+ylim([0, h_ice]);         
+set(gca, 'YTick', 0:200:h_ice)
+set(gca, 'YDir', 'reverse')
+drawnow;
+
+nexttile
+imagesc(x(margin),y(ice)-h_air,data_stress.sxxOLD(ice,margin))
+ylabel('depth (m)',Interpreter='latex',fontsize=30); 
+title('$\tau_{xx}$ ',Interpreter='latex',fontsize=30);
+xline([BC.xsize/2-L/2 , BC.xsize/2+L/2], ':', 'LineWidth',2,'HandleVisibility', 'off')
+colormap(gca, flipud(brewermap(256, 'RdBu')))
+clim([-5e5 5e5])  
+c = colorbar;
+c.Label.String = '$\tau_{xx}$ (Pa)';
+c.Label.Interpreter = 'latex';
+xlim([2.5e4,3.5e4]);
+axis tight;
+set(gca, 'YTick', 0:200:h_ice) 
+set(gca, 'YDir', 'reverse')  
+drawnow;
+
+nexttile
+imagesc(x(margin),y(ice)-h_air,data_stress.sxyOLD(ice,margin))
+xlabel('x (m)', Interpreter='latex',fontsize=30); ylabel('depth (m)',Interpreter='latex',fontsize=30); 
+title('$\tau_{xy}$',Interpreter='latex',fontsize=30);
+xline([BC.xsize/2-L/2 , BC.xsize/2+L/2], ':', 'LineWidth',2,'HandleVisibility', 'off')
+colormap(gca, flipud(brewermap(256, 'RdBu')))
+clim([-3e5 3e5])  
+c = colorbar;
+c.Label.String = '$\tau_{xy}$ (Pa)';
+c.Label.Interpreter = 'latex';
+xlim([2.5e4,3.5e4]);
+axis tight; 
+set(gca, 'YTick', 0:200:h_ice)   
+set(gca, 'YDir', 'reverse')    
+drawnow;
+
+% Lock all axis positions
+axs = findobj(fig, 'Type', 'Axes', '-not', 'Type', 'ColorBar')';
+for ax = axs
+    ax.Position = ax.Position;
+end
+
+% Font sizes
+for ax = axs
+    ax.FontSize = 20;
+    ax.XLabel.FontSize = 25;
+    ax.YLabel.FontSize = 25;
+    ax.Title.FontSize  = 25;
+end
+for cb = findobj(fig, 'Type', 'ColorBar')'
+    cb.Label.FontSize = 20;
+    cb.FontSize = 20;
+end
+
+%% Deviatoric tau_xx 
+Nt=80; %number of timesteps 
+t_cut = 3; %cutoff
+skip  = 4; %take every nth file after cutoff
+
+BC.xsize=6e4;
+t_vals = [3:t_cut, t_cut+skip:skip:Nt];
+n_lines = numel(t_vals);
+cmap = flipud(parula(n_lines));
+offset=BC.xsize/2/1e3;
+
+[ice]=find((h_air<y) & (y<h_air+h_ice));
+abs_time=zeros(1, Nt);
+t_times = zeros(1, n_lines); 
+
+fig = figure();
+fig.Units    = 'centimeters';
+fig.Position = [0 0 30 15];
+ax = gca;
+hold(ax, 'on');
+
+for i=1:n_lines % time loop
+    t=t_vals(i);
+    fname=strcat("t",num2str(t),"_d",num2str((PARAMS.t_end-PARAMS.t_start)/(3600*24)),"_G",sprintf('%0.1g',MAT(2).G),"_ep",num2str(epsilon),"_mu",sprintf('%0.1g',eta_ice),"_etaw", sprintf('%0.1g',eta_water),"_etar", sprintf('%0.1g',eta_rock),"_p",sprintf('%0.1g', BC.p),'_ell',sprintf('%0.1g',BC.slip_patch_size/2),'_nonlinear_viscoelastic.mat');
+    data = load(fname);
+    time=data.time;
+
+    sxxDepthAvg_ice = (data.sxxOLD(ice(3),:)); %surface
+    % sxxDepthAvg_ice = mean(data.sxxOLD(ice(3:end),:)); %depth-average
+    plot(ax, data.X(1,:)./1e3-offset, sxxDepthAvg_ice, 'LineWidth',1.5, 'Color',cmap(i,:));
+    abs_time(i)=data.time;
+    t_times(i) = (data.time - PARAMS.t_start)/3600;  
+end
+
+patch_l = BC.xsize/2 - BC.slip_patch_size/2;
+patch_r = BC.xsize/2 + BC.slip_patch_size/2;
+
+colormap(ax, cmap);
+caxis(ax, [min(t_times), max(t_times)]);
+cb = colorbar(ax);
+cb.TickLabelInterpreter = 'latex';
+cb.Label.Interpreter = 'latex';
+cb.Label.String = 'Time (hr)';
+cb.Label.FontSize = 28;
+cb.FontSize = 28;
+
+ax.FontSize             = 16;
+ax.TickLabelInterpreter = 'latex';
+ax.Box                  = 'on';
+ax.LineWidth            = 0.75;
+ax.XMinorTick           = 'on';
+ax.YMinorTick           = 'on';
+ylim(ax, [-5e5, 5e5])
+yline(ax, 0, '--', 'Color', [0.6 0.6 0.6], 'LineWidth', 0.75, 'HandleVisibility', 'off')
+
+xlabel(ax, 'Horizontal position (km)',       Interpreter='latex', FontSize=28)
+ylabel(ax, 'Normal stress $\tau_{xx}$ (Pa)', Interpreter='latex', FontSize=28)
+title(ax, 'Surface horizontal normal stress, nonlinear viscoelastic', Interpreter='latex', FontSize=28)
+
+% shaded patch region
+patch_l_km = patch_l / 1e3-offset;
+patch_r_km = patch_r / 1e3-offset;
+yl = ylim(ax);
+fill(ax, [patch_l_km patch_r_km patch_r_km patch_l_km], ...
+     [yl(1) yl(1) yl(2) yl(2)], ...
+     [0.9 0.9 0.9], ...
+     'EdgeColor', 'none', ...
+     'FaceAlpha', 0.3, ...
+     'HandleVisibility', 'off')
+uistack(findobj(ax,'Type','patch'), 'bottom')
+hold(ax, 'off')
+xlim(ax, [-15,15]);
+
+
+%% Boundary condition validation for uplift-only case
+epsilon=0;
+BC.p=1e5;
+t = 4; % specify time of interest 
+fname = strcat("t",num2str(t),"_d",num2str((PARAMS.t_end-PARAMS.t_start)/(3600*24)),"_G",sprintf('%0.1g',MAT(2).G),"_ep",num2str(epsilon),"_mu",sprintf('%0.1g',eta_ice),"_etaw", sprintf('%0.1g',eta_water),"_etar", sprintf('%0.1g',eta_rock),"_p",sprintf('%0.1g', BC.p),'_ell',sprintf('%0.1g',BC.slip_patch_size/2),'_nonlinear_viscoelastic.mat');
+d = load(fname);
+
+sxxNew = 2.*Zn.*d.etan.*d.EXX + (1-Zn).*d.sxxOLD; 
+g   = PARAMS.gy;
+yy  = y(:);                          
+plith_col = MAT(1).rho0*g*min(yy, BC.h_air) ...
+          + MAT(2).rho0*g*min(max(yy-BC.h_air,0), BC.h_ice) ...
+          + MAT(4).rho0*g*max(yy-BC.h_air-BC.h_ice, 0);
+plith = repmat(plith_col, 1, numel(x));
+p_shifted = plith*0;
+p_shifted(2:end,:) = 1.5*d.p(2:end,:) - 0.5*d.p(1:end-1,:);
+p_blister = p_shifted + sxxNew - plith;
+
+figure; plot(x, p_blister(end,:), DisplayName='numerical pressure'); yline(d.pressure, '--',DisplayName='prescribed pressure');
+title('Pressure at bottom of domain, t=57000 s');
+xlabel('x (m)');
+ylabel('Pressure (Pa)'); 
+legend()
+ylim([-20e5,5e5]);
+
+ax = gca;
+ax.FontSize = 24;
+
+
+%% Deborah number at two timesteps
+G = MAT(2).G;
+useGlen = false; %choose whether De is computed from stress field (T) or eta field (F)        
+A = 1.2e-25; n = 3;
+
+fig = figure();
+fig.Units = 'centimeters';
+fig.Position = [0 0 40 20];
+fig.PaperSize = [40 30];
+tl = tiledlayout(fig, 2, 1, 'TileSpacing', 'compact', 'Padding', 'compact');
+
+for k = 1:2
+    fname = strcat("t",num2str(times(k)),"_d",num2str((PARAMS.t_end-PARAMS.t_start)/(3600*24)),"_G",sprintf('%0.1g',MAT(2).G),"_ep",num2str(epsilon),"_mu",sprintf('%0.1g',eta_ice),"_etaw", sprintf('%0.1g',eta_water),"_etar", sprintf('%0.1g',eta_rock),"_p",sprintf('%0.1g', BC.p),'_ell',sprintf('%0.1g',BC.slip_patch_size/2),'_nonlinear_viscoelastic.mat');
+    data = load(fname);
+
+    if useGlen
+        tauII = sqrt(data.sxxOLD.^2 + data.sxyOLD.^2); %second invariant of stress
+        eta_eff = 1 ./ (2*A*max(tauII,1).^(n-1));
+    else
+        eta_eff = data.etan; %numerical effective viscosity
+    end
+    Tobs = data.time - PARAMS.t_start; %time of observation
+    De = (eta_eff ./ G) ./ Tobs;
+    logDe = log10(De(ice, margin));
+
+
+    ax = nexttile(tl);
+    h = imagesc(ax, x(margin)-x0, y(ice)-h_air, logDe);
+
+
+    title(ax, sprintf('%s Deborah number $\\log_{10}De$, t=%g hrs', labels{k}, hrs(k)), ...
+        Interpreter='latex', FontSize=38);
+    ylabel(ax, 'depth (m)', Interpreter='latex', FontSize=40);
+    xline(ax, [-L/2, L/2], ':', 'LineWidth', 2, 'HandleVisibility', 'off');
+
+    colormap(ax, flipud(brewermap(256, 'RdBu')));   % red = elastic (De>1), blue = viscous
+    clim(ax, [-2 2]);                               % symmetric about De = 1
+    xlim(ax, [x(margin(1)) x(margin(end))] - x0);
+    set(ax, 'YTick', 0:200:h_ice, 'YDir', 'reverse');
+    set(ax, 'XTick', (2.5e4:1e3:3.5e4)-x0);
+    ax.FontSize = 35;
+
+    if k == 1
+        set(ax, 'XTickLabel', []);
+    else
+        xlabel(ax, 'x (m)', Interpreter='latex', FontSize=40);
+    end
+end
+
+c = colorbar(ax);
+c.Layout.Tile = 'east';
+c.Label.String = '$\log_{10} De$';
+c.Label.Interpreter = 'latex';
+c.Label.FontSize = 35;
+c.FontSize = 35;
+drawnow;

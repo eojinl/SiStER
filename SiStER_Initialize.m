@@ -53,7 +53,26 @@ end
 % initialize marker chain to track base of layer 1 (sticky layer)
 Ntopo=PARAMS.Ntopo_markers;
 topo_x=linspace(0,xsize,Ntopo);
-topo_y=GEOM(1).bot*ones(size(topo_x));
+topo_y=GEOM(1).bot*ones(size(topo_x))+2*GRID.dy(1); % HERE for interface between ice/air
+topo_bot_y=GEOM(2).bot*ones(size(topo_x))-GRID.dy(1); % HERE for bottom of ice
+topo_bot_y0=topo_bot_y;
+topo_bot_x=topo_x;
+topo_bot_x0=topo_bot_x;
 topo_marker_spacing=mean(diff(topo_x)); % initial mean spacing of topography markers
+exx_topo=0*topo_x;
+% figure;
+% plot(topo_x,topo_y)
+% title('Topography')
+
+%% Debugging regridding code
+% topoL=topo_y(1);
+% topoR=topo_y(end);
+% topo_x_regrid=linspace(0,xsize,Ntopo); 
+% topo_y_regrid=interp1(topo_x,topo_y,topo_x_regrid(2:end-1));
+% topo_y_regrid=[topoL topo_y_regrid topoR];
+% plot(topo_x_regrid,topo_y_regrid)
+% title('Regridded topography')
+% xlim([-0.1e4,3e4])
+% ylim([679.5,680.5])
 
 

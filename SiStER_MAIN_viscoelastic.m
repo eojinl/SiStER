@@ -1,7 +1,7 @@
 % SiStER_MAIN_viscoelastic.m
 %
 % Reproduces viscoelastic results of: 
-% Lai et al., "From blistering to sliding: Ice-sheet stress perturbations from water injection to the bed"
+% Lai, C.-Y., Rines, J. H., Coffey, N. B., Lee, E., Clerc, F., Hilditch, J. P., Gagliardini, O., & L. Stevens. (2026). From blistering to sliding: Ice-sheet stress perturbations from water injection to the bed
 % eojinl <at> stanford.edu
 % 
 % Modified from SiStER_MAIN.m: 
@@ -93,7 +93,7 @@ for t=1:Nt
     % OUTPUT VARIABLES OF INTEREST (prior to rotation & advection)
     if (mod(t,dt_out)==0 && dt_out>0) || t==1 || t==Nt % SAVING SELECTED OUTPUT
         disp('SAVING SELECTED VARIABLES TO OUTPUT FILE')
-        filename=strcat("t",num2str(t),"_d",num2str((PARAMS.t_end-PARAMS.t_start)/(3600*24)),"_G",sprintf('%0.1g',MAT(2).G),"_ep",num2str(epsilon),"_mu",sprintf('%0.1g',eta_ice),"_etaw", sprintf('%0.1g',eta_water),"_etar", sprintf('%0.1g',eta_rock),"_p",sprintf('%0.1g', BC.p),'_ell',sprintf('%0.1g',BC.slip_patch_size/2),'_viscoelastic.mat');
+        filename=strcat("t",num2str(t),"_d",num2str((PARAMS.t_end-PARAMS.t_start)/(3600*24)),"_G",sprintf('%0.1g',MAT(2).G),"_ep",num2str(epsilon),"_mu",sprintf('%0.1g',eta_ice),"_etaw", sprintf('%0.1g',eta_water),"_etar", sprintf('%0.1g',eta_rock),"_p",sprintf('%0.1g', BC.p),'_ell',sprintf('%0.1g',BC.slip_patch_size/2),'_nonlinear_viscoelastic.mat');
 
         [etam]=SiStER_interp_shear_nodes_to_markers(etas,x,y,xm,ym,icn,jcn); % to visualize viscosity on markers
         save(filename, 'X','Y','vx','vy','p','time','BC','etan','topo_x','topo_y','topo_bot_x','topo_bot_y','sxxOLD','sxyOLD','PARAMS','exx_topo','EXX','EXY','pressure')
@@ -140,5 +140,4 @@ for t=1:Nt
 
 end 
 disp('FIN')
-
-%% 
+ 
